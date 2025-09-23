@@ -1,0 +1,40 @@
+# Versión del archivo Docker Compose (opcional en versiones modernas, pero recomendado para claridad)
+version: "3.9"
+
+services:
+
+# Servicio para MongoDB (base de datos)
+  # mongo:
+    # image: mongo:6 # Imagen oficial de MongoDB, versión 6
+    # container_name: mongo-container # Nombre personalizado del contenedor (opcional)
+    # ports: 
+      # - "27017:27017" # Expone el puerto de Mongo para acceder desde fuera (por ejemplo, MongoDB Compass)
+    # volumes:
+      # - mongo_data:/data/db # Volumen persistente para guardar los datos de Mongo
+  
+  # Servicio para el backend (Node.js con Express)
+  backend:
+    build: ./backend # Construye la imagen desde el Dockerfile ubicado en la carpeta ./backend
+    container_name: mi-backend-container # Nombre personalizado del contenedor (opcional)
+
+    ports:
+      - "3000:3000" # Expone el backend en el puerto 3000
+    #depends_on:
+      #- mongo # Asegura que Mongo se inicie antes que el backend (no garantiza que esté listo)
+
+    env_file:
+      - ./backend/.env # Carga variables de entorno desde el archivo .env (opcional pero útil)
+
+
+  # Servicio para el frontend (por ejemplo, una app React o similar)
+  frontend: 
+    build: ./frontend # Construye la imagen desde la carpeta ./frontend
+    container_name: mi-frontend-container # Nombre personalizado del contenedor (opcional)
+    ports:
+      - "8080:80" # Expone el frontend en localhost:8080 (puerto 80 del contenedor hacia 8080 local)
+    depends_on:
+      - backend # Inicia el frontend solo después que el backend (no garantiza que esté listo)
+
+# Declaración de volúmenes (obligatoria si usas volumes en servicios)
+# volumes:
+  # mongo_data: # Volumen persistente que guarda los datos de Mongo

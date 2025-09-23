@@ -1,0 +1,82 @@
+
+######################################
+# 🔧 Node.js
+######################################
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+######################################
+# 🔐 Archivos de entorno
+######################################
+.env
+.env.local
+.env.*.local
+.env.test
+.env.production
+
+######################################
+# ⚙️ Build y output
+######################################
+dist/
+build/
+.cache/
+tmp/
+temp/
+coverage/
+.nyc_output/
+test-results/
+*.tsbuildinfo
+
+######################################
+# 🐳 Docker & Docker Compose
+######################################
+docker-compose.override.yml
+*.pid
+*.seed
+*.log
+*.bak
+
+######################################
+# 📦 Lockfiles (incluidos porque trabajas en equipo)
+# IMPORTANTE: NO los ignores a menos que tengan una estrategia compartida
+######################################
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+######################################
+# 🖥️ Kubernetes (manifests o config específicos)
+######################################
+*.kubeconfig
+*.yaml.backup
+
+######################################
+# 💻 Entornos de desarrollo (VS Code, IntelliJ, etc.)
+######################################
+.vscode/
+.idea/
+*.iml
+*.sublime*
+
+######################################
+# 💾 Sistema operativo
+######################################
+.DS_Store
+Thumbs.db
+ehthumbs.db
+*.swp
+*.swo
+*~
+
+######################################
+# 🧪 CI/CD Artifacts (si los genera localmente)
+######################################
+*.tgz
+*.zip
+*.tar.gz
+*.log
+
+
