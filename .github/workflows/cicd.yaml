@@ -67,7 +67,7 @@ jobs:
           
           echo "✅ DynamoDB table created!"
 
-          - name: Verify DynamoDB table
+      - name: Verify DynamoDB table
         run: |
           aws dynamodb list-tables \
             --endpoint-url http://localhost:4566 \
