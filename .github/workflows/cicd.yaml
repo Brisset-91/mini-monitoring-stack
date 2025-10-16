@@ -96,6 +96,7 @@ jobs:
       - name: Frontend build (static)
         run: echo "No build step needed for static frontend"
 
+
  # ===== DOCKER BUILD Y PUSH =====
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
