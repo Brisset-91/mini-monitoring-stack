@@ -1,9 +1,12 @@
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: backend-deployment
+  name: backend
+  labels:
+    app: backend
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: backend
@@ -13,14 +16,58 @@ spec:
         app: backend
     spec:
       containers:
-        - name: backend
-          image: brissetc/backend::${IMAGE_TAG}
-          imagePullPolicy: Always
-          ports:
-            - containerPort: 3000
-          env:
-            - name: MONGO_URL
-              valueFrom:
-                secretKeyRef:
-                  name: backend-secret
-                  key: mongo_url
+      - name: backend
+        image: brissetc/backend::${IMAGE_TAG}
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3000
+        env:
+        - name: PORT
+          value: "3000"
+        - name: AWS_REGION
+          valueFrom:
+            secretKeyRef:
+              name: backend-secret
+              key: aws_region
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: backend-secret
+              key: aws_access_key_id
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: backend-secret
+              key: aws_secret_access_key
+        - name: DYNAMODB_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              name: backend-secret
+              key: dynamodb_endpoint
+              optional: true
+        - name: TABLE_NAME
+          valueFrom:
+            secretKeyRef:
+              name: backend-secret
+              key: table_name
+        - name: NODE_ENV
+          value: "production"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 5

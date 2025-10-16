@@ -3,7 +3,7 @@ require("dotenv").config();
 const request = require('supertest');
 const express = require('express');
 const mongoose = require('mongoose');
-const app = require('./index'); // lo ajustaremos abajo
+const app = require('./server'); // lo ajustaremos abajo
 
 describe('GET /comentarios', () => {
   beforeAll(async () => {
