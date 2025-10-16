@@ -56,7 +56,7 @@ jobs:
 
       - name: Initialize and apply Terraform
         run: |
-          cd terraform
+          cd terraform-local-demo
           terraform init
           
           echo "📋 Terraform Plan:"
@@ -532,7 +532,7 @@ jobs:
           ## Step 1: Deploy DynamoDB with Terraform
           
           ```bash
-          cd terraform
+          cd terraform-local-demo
           
           # Update provider to use real AWS (remove LocalStack endpoint)
           # Edit main.tf and remove the endpoints block
