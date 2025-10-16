@@ -1,7 +1,77 @@
-node_modules
-npm-debug.log
-Dockerfile
-.dockerignore
-.env
+# Git
 .git
 .gitignore
+.gitattributes
+
+# Node
+node_modules
+npm-debug.log
+npm-error.log
+.npm
+package-lock.json
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+coverage
+.nyc_output
+*.lcov
+
+# Build
+dist
+build
+.next
+out
+
+# Documentation
+docs
+README.md
+
+# CI/CD
+.github
+.gitlab-ci.yml
+.travis.yml
+Jenkinsfile
+
+# Terraform
+terraform/.terraform
+terraform/.terraform.lock.hcl
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/crash.log
+terraform/override.tf.json
+terraform/.terraformrc
+terraform/terraform.rc
+
+# LocalStack
+localstack-data
+
+# Kubernetes
+k8s
+
+# Scripts
+scripts
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Misc
+*.md
+LICENSE
+.editorconfig
+.prettierrc
+.eslintrc*
+jest.config.js
