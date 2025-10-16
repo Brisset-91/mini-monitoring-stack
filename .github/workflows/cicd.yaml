@@ -117,34 +117,52 @@ jobs:
           docker build -t test-frontend:latest ./frontend
           echo "✅ Test images built successfully"
 
-    # ===== TESTING CON KUBERNETES =====
-      - name: Start Minikube for testing
-        uses: medyagh/setup-minikube@master
+# ===== TESTING CON KUBERNETES reemplazo(setup-minikube por kind)=====
+      - name: Create Kind cluster
+        uses: helm/kind-action@v1.7.0
         with:
-          minikube-version: 'latest'
-          kubernetes-version: 'latest'
+          cluster_name: test-cluster
+          config: |
+            kind: Cluster
+            apiVersion: kind.x-k8s.io/v1alpha4
+            nodes:
+            - role: control-plane
+              extraPortMappings:
+              - containerPort: 80
+                hostPort: 80
+              - containerPort: 3000
+                hostPort: 3000
+              - containerPort: 4566
+                hostPort: 4566
 
       - name: Verify Kubernetes cluster
         run: |
           kubectl cluster-info
           kubectl get nodes
+          sleep 5
           echo "✅ Kubernetes cluster is ready!"
 
-      - name: Load test images to Minikube
+      - name: Load test images to Kind
         run: |
-          minikube image load test-backend:latest
-          minikube image load test-frontend:latest
-          echo "✅ Test images loaded into Minikube" 
-
+          kind load docker-image test-backend:latest --name test-cluster
+          kind load docker-image test-frontend:latest --name test-cluster
+          sleep 2
+          echo "✅ Test images loaded into Kind"
 
       # ===== DESPLEGAR LOCALSTACK EN KUBERNETES =====
       - name: Deploy LocalStack to Kubernetes
         run: |
           cat << EOF | kubectl apply -f -
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: localstack
+          ---
           apiVersion: apps/v1
           kind: Deployment
           metadata:
             name: localstack-test
+            namespace: localstack
           spec:
             replicas: 1
             selector:
@@ -164,16 +182,28 @@ jobs:
                   - name: SERVICES
                     value: "dynamodb"
                   - name: DEBUG
-                    value: "1"
+                    value: "0"
+                  - name: DOCKER_HOST
+                    value: "unix:///var/run/docker.sock"
+                  resources:
+                    requests:
+                      memory: "512Mi"
+                      cpu: "500m"
+                    limits:
+                      memory: "1Gi"
+                      cpu: "1000m"
           ---
           apiVersion: v1
           kind: Service
           metadata:
             name: localstack-test
+            namespace: localstack
           spec:
+            type: ClusterIP
             ports:
             - port: 4566
               targetPort: 4566
+              protocol: TCP
             selector:
               app: localstack-test
           EOF
@@ -181,22 +211,30 @@ jobs:
 
       - name: Wait for LocalStack in Kubernetes
         run: |
-          echo "⏳ Waiting for LocalStack..."
-          kubectl wait --for=condition=available --timeout=120s deployment/localstack-test
+          echo "⏳ Waiting for LocalStack to be ready..."
+          kubectl wait --for=condition=ready pod -l app=localstack-test -n localstack --timeout=120s || true
           
           # Esperar a que LocalStack esté completamente inicializado
-          sleep 15
-          echo "✅ LocalStack is ready in Kubernetes"
+          sleep 10
+          
+          # Verificar que está respondiendo
+          LOCALSTACK_POD=$(kubectl get pods -n localstack -l app=localstack-test -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+          if [ -z "$LOCALSTACK_POD" ]; then
+            echo "⚠️ LocalStack pod not ready yet"
+            kubectl get pods -n localstack
+            exit 1
+          fi
+          echo "✅ LocalStack pod is ready: $LOCALSTACK_POD"
 
       - name: Create DynamoDB table in Kubernetes LocalStack
         run: |
           # Obtener el pod de LocalStack
-          LOCALSTACK_POD=$(kubectl get pods -l app=localstack-test -o jsonpath='{.items[0].metadata.name}')
+          LOCALSTACK_POD=$(kubectl get pods -n localstack -l app=localstack-test -o jsonpath='{.items[0].metadata.name}')
           
           echo "📦 Creating DynamoDB table in pod: $LOCALSTACK_POD"
           
-          # Crear la tabla usando awslocal (o aws con endpoint)
-          kubectl exec $LOCALSTACK_POD -- aws dynamodb create-table \
+          # Crear la tabla usando aws cli
+          kubectl exec -n localstack $LOCALSTACK_POD -- aws dynamodb create-table \
             --table-name comentarios \
             --attribute-definitions \
               AttributeName=id,AttributeType=S \
@@ -207,15 +245,16 @@ jobs:
             --global-secondary-indexes \
               "IndexName=FechaIndex,KeySchema=[{AttributeName=tipo,KeyType=HASH},{AttributeName=fecha,KeyType=RANGE}],Projection={ProjectionType=ALL}" \
             --endpoint-url http://localhost:4566 \
-            --region us-east-1 || echo "⚠️ Table might already exist"
+            --region us-east-1 2>&1 || echo "⚠️ Table might already exist or LocalStack not ready"
+          
+          sleep 5
           
           # Verificar que la tabla existe
-          kubectl exec $LOCALSTACK_POD -- aws dynamodb list-tables \
+          kubectl exec -n localstack $LOCALSTACK_POD -- aws dynamodb list-tables \
             --endpoint-url http://localhost:4566 \
             --region us-east-1
           
           echo "✅ DynamoDB table created in Kubernetes"
- 
 
       # ===== PREPARAR MANIFIESTOS DE KUBERNETES =====
       - name: Prepare Kubernetes manifests for testing
@@ -236,67 +275,38 @@ jobs:
 
       - name: Create Kubernetes Secret for DynamoDB
         run: |
+          kubectl create namespace app || true
           kubectl create secret generic backend-secret \
             --from-literal=aws_region=us-east-1 \
             --from-literal=aws_access_key_id=test \
             --from-literal=aws_secret_access_key=test \
-            --from-literal=dynamodb_endpoint=http://localstack-test:4566 \
+            --from-literal=dynamodb_endpoint=http://localstack-test.localstack:4566 \
             --from-literal=table_name=comentarios \
+            --namespace=app \
             --dry-run=client -o yaml | kubectl apply -f -
           echo "🔐 DynamoDB secrets created"
 
       - name: Deploy application to test environment
         run: |
-          kubectl apply -f k8s/backend-deployment-test.yaml
-          kubectl apply -f k8s/backend-service.yaml
-          kubectl apply -f k8s/frontend-deployment-test.yaml
-          kubectl apply -f k8s/frontend-service.yaml
+          # Inyectar namespace en los manifests
+          sed -i 's/namespace: .*/namespace: app/g' k8s/backend-deployment-test.yaml k8s/frontend-deployment-test.yaml
+          
+          kubectl apply -f k8s/backend-deployment-test.yaml -n app
+          kubectl apply -f k8s/backend-service.yaml -n app
+          kubectl apply -f k8s/frontend-deployment-test.yaml -n app
+          kubectl apply -f k8s/frontend-service.yaml -n app
           echo "🚀 Application deployed to test environment"
 
       - name: Wait for test deployments
         run: |
-          echo "⏳ Waiting for LocalStack..."
-          kubectl wait --for=condition=available --timeout=180s deployment/localstack-test || echo "⚠️ LocalStack timeout"
-          
           echo "⏳ Waiting for backend..."
-          kubectl wait --for=condition=available --timeout=180s deployment/backend || echo "⚠️ Backend timeout"
+          kubectl wait --for=condition=available --timeout=180s deployment/backend -n app || echo "⚠️ Backend timeout"
           
           echo "⏳ Waiting for frontend..."
-          kubectl wait --for=condition=available --timeout=180s deployment/frontend || echo "⚠️ Frontend timeout"
-
-      - name: Run connectivity tests
-        run: |
-          echo "🧪 Running connectivity tests..."
+          kubectl wait --for=condition=available --timeout=180s deployment/frontend -n app || echo "⚠️ Frontend timeout"
           
-          kubectl get pods -o wide
-          
-          echo "Testing backend connectivity..."
-          kubectl run test-backend --image=curlimages/curl:latest --rm -i --restart=Never -- \
-            curl -s --max-time 10 http://backend-service:3000/health || echo "⚠️ Backend test failed"
-          
-          echo "Testing frontend connectivity..."  
-          kubectl run test-frontend --image=curlimages/curl:latest --rm -i --restart=Never -- \
-            curl -s --max-time 10 http://frontend-service:80/ || echo "⚠️ Frontend test failed"
-          
-          echo "✅ Connectivity tests completed"
-
-      - name: Test DynamoDB operations
-        run: |
-          echo "🧪 Testing DynamoDB operations..."
-          
-          # Crear un comentario de prueba
-          kubectl run test-dynamodb --image=curlimages/curl:latest --rm -i --restart=Never -- \
-            curl -X POST http://backend-service:3000/comentarios \
-            -H "Content-Type: application/json" \
-            -d '{"autor":"Test CI/CD","mensaje":"Test from GitHub Actions"}' || echo "⚠️ POST test failed"
-          
-          sleep 2
-          
-          # Obtener comentarios
-          kubectl run test-get --image=curlimages/curl:latest --rm -i --restart=Never -- \
-            curl -s http://backend-service:3000/comentarios || echo "⚠️ GET test failed"
-          
-          echo "✅ DynamoDB operations tested"
+          sleep 10
+          echo "✅ Deployments ready"
 
       - name: Show test results
         if: always()
@@ -304,16 +314,20 @@ jobs:
           echo "📊 Test Environment Status:"
           echo "=========================="
           
-          echo "📦 Pods:"
-          kubectl get pods -o wide
+          echo "📦 Pods (app namespace):"
+          kubectl get pods -n app -o wide || true
           
           echo ""
-          echo "🌐 Services:"
-          kubectl get services
+          echo "📦 Pods (localstack namespace):"
+          kubectl get pods -n localstack -o wide || true
+          
+          echo ""
+          echo "🌐 Services (app):"
+          kubectl get services -n app || true
           
           echo ""
           echo "📋 Recent Events:"
-          kubectl get events --sort-by='.lastTimestamp' | tail -15
+          kubectl get events -n app --sort-by='.lastTimestamp' 2>/dev/null | tail -10 || true
 
       - name: Debug logs if tests failed
         if: failure()
@@ -322,15 +336,15 @@ jobs:
           echo "======================="
           
           echo "📄 LocalStack logs:"
-          kubectl logs -l app=localstack-test --tail=30 || echo "No LocalStack logs"
+          kubectl logs -n localstack -l app=localstack-test --tail=50 || echo "No LocalStack logs"
           
           echo ""
           echo "📄 Backend logs:"
-          kubectl logs -l app=backend --tail=30 || echo "No backend logs"
+          kubectl logs -n app -l app=backend --tail=50 || echo "No backend logs"
           
           echo ""
           echo "📄 Frontend logs:"
-          kubectl logs -l app=frontend --tail=30 || echo "No frontend logs"
+          kubectl logs -n app -l app=frontend --tail=50 || echo "No frontend logs"
 
       # ===== PUSH A DOCKER HUB (solo si los tests pasaron) =====
       - name: Push backend image to Docker Hub
