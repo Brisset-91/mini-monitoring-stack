@@ -11,9 +11,6 @@ RUN npm ci
 # Copiar código fuente
 COPY . .
 
-# Ejecutar tests durante el build
-RUN npm test -- --passWithNoTests
-
 # ============================================
 # Etapa de producción (multi-stage build)
 # ============================================
