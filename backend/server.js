@@ -20,7 +20,7 @@ const dynamoClient = new DynamoDBClient({
 });
 
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
-const TABLE_NAME = process.env.DYNAMODB_TABLE || "ComentariosApp";
+const TABLE_NAME = process.env.TABLE_NAME || "comentarios";
 
 // CORS flexible para desarrollo
 app.use(cors({
