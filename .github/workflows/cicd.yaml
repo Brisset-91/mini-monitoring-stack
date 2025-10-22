@@ -130,8 +130,6 @@ jobs:
               hostPort: 80
             - containerPort: 3000
               hostPort: 3000
-            - containerPort: 4566
-              hostPort: 4566
           EOF
           echo "✅ Kind config file created"
 
