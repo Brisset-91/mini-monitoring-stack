@@ -189,6 +189,12 @@ jobs:
                     value: "0"
                   - name: DOCKER_HOST
                     value: "unix:///var/run/docker.sock"
+                  - name: AWS_ACCESS_KEY_ID
+                    value: "test"
+                  - name: AWS_SECRET_ACCESS_KEY
+                    value: "test"
+                  - name: AWS_DEFAULT_REGION
+                    value: "us-east-1"
                   resources:
                     requests:
                       memory: "512Mi"
@@ -232,12 +238,10 @@ jobs:
 
       - name: Create DynamoDB table in Kubernetes LocalStack
         run: |
-          # Obtener el pod de LocalStack
           LOCALSTACK_POD=$(kubectl get pods -n localstack -l app=localstack-test -o jsonpath='{.items[0].metadata.name}')
           
           echo "📦 Creating DynamoDB table in pod: $LOCALSTACK_POD"
           
-          # Crear la tabla usando aws cli
           kubectl exec -n localstack $LOCALSTACK_POD -- aws dynamodb create-table \
             --table-name comentarios \
             --attribute-definitions \
@@ -249,11 +253,10 @@ jobs:
             --global-secondary-indexes \
               "IndexName=FechaIndex,KeySchema=[{AttributeName=tipo,KeyType=HASH},{AttributeName=fecha,KeyType=RANGE}],Projection={ProjectionType=ALL}" \
             --endpoint-url http://localhost:4566 \
-            --region us-east-1 2>&1 || echo "⚠️ Table might already exist or LocalStack not ready"
+            --region us-east-1 2>&1 || echo "⚠️ Table might already exist"
           
           sleep 5
           
-          # Verificar que la tabla existe
           kubectl exec -n localstack $LOCALSTACK_POD -- aws dynamodb list-tables \
             --endpoint-url http://localhost:4566 \
             --region us-east-1
