@@ -10,6 +10,13 @@ Pipeline completo de CI/CD que automatiza el build, testing y deployment de una 
 - **Multi-etapa**: Build → Test → Deploy
 - **Infrastructure as Code**: Terraform para DynamoDB de AWS
 
+## 🎥 Demo del pipeline CI/CD
+
+<video src="assets/DemoUno.mp4" width="600" controls></video>
+
+<video src="assets/DemoDos.mp4" width="600" controls></video>
+
+
 ## 🏗️ Arquitectura
 
 ```
@@ -280,6 +287,6 @@ kubectl logs -f -l app=localstack -n localstack
 
 ## 👥 Autores
 
-- Brisset Corcino Paz - [GitHub](https://github.com/tuusuario)
+- Brisset Corcino Paz - [GitHub](https://github.com/Brisset-91)
 
 ---
