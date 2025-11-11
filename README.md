@@ -12,10 +12,11 @@ Pipeline completo de CI/CD que automatiza el build, testing y deployment de una 
 
 ## 🎥 Demo del pipeline CI/CD
 
-<video src="assets/DemoUno.mp4" width="600" controls></video>
 
-<video src="assets/DemoDos.mp4" width="600" controls></video>
+https://github.com/user-attachments/assets/4fe39718-2cef-421e-bc4a-8227cabace19
 
+
+https://github.com/user-attachments/assets/2a1176b8-e86c-448f-9618-65c7581b377d
 
 ## 🏗️ Arquitectura
 
